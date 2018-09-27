@@ -38,7 +38,7 @@ from datetime import datetime
 """
 def queue_to_series(a, freq="s"):
     t = pd.date_range(end=datetime.now(), freq=freq, periods=len(a))
-    return pd.TimeSeries(a, index=t)
+    return pd.Series(a, index=t)
 
 class ThinkGearParser(object):
     def __init__(self, recorders=None):
