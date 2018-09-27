@@ -6,9 +6,11 @@ import bluetooth
 import time
 import sys
 import argparse
+from numpy import *
+from scipy import *
 from progressbar import ProgressBar, Bar, Percentage
 
-
+from mindwave.pyeeg import bin_power
 from mindwave.bluetooth_headset import connect_magic, connect_bluetooth_addr
 from mindwave.bluetooth_headset import BluetoothError
 from example_startup import mindwave_startup
@@ -38,25 +40,50 @@ if __name__ == '__main__':
     recorder = TimeSeriesRecorder()
     parser = ThinkGearParser(recorders=[recorder])
 
-    if args.measure== 'attention':
-        measure_name = 'Attention'
-    else:
-        measure_name = 'Meditation'
-
-    bar = ProgressBar(widgets=[measure_name, Percentage(), Bar()]).start()
-
+    spectra = []
     while 1:
         time.sleep(0.25)
-        data = socket.recv(20000)
-        parser.feed(data)
-        v = 0
-        if args.measure == 'attention':
-            if len(recorder.attention)>0:
-                v = recorder.attention[-1]
-        if args.measure == 'meditation':
-            if len(recorder.meditation)>0:
-                v = recorder.meditation[-1]
-        if v>0:
-            bar.start()
-            bar.update(v)
+        attention_value = 0
+        meditation_value = 0
+        delta_value = 0
+        theta_value = 0
+        alpha_value = 0
+        beta_value = 0
+        gamma_value = 0
+        try:
+            data = socket.recv(10000)
+            parser.feed(data)
+        except BluetoothError:
+            pass
+        if len(recorder.attention)>0:
+            attention_value = recorder.attention[-1]
+            meditation_value = recorder.meditation[-1]
+            flen = 50
+            if len(recorder.raw)>=512:
+                spectrum, relative_spectrum = bin_power(recorder.raw[-512*3:], range(flen),512)
+                spectra.append(array(relative_spectrum))
+                if len(spectra)>30:
+                    spectra.pop(0)
+                spectrum = mean(array(spectra),axis=0)
+                for i in range (flen-1):
+                    value = float(spectrum[i]*1000)
+                    if i<3:
+                        delta_value += value
+                    elif i<8:
+                        theta_value += value
+                    elif i<13:
+                        alpha_value += value
+                    elif i<30:
+                        beta_value += value
+                    else:
+                        gamma_value += value
 
+                print "Attention: {}".format(attention_value)
+                print "Meditation {}".format(meditation_value)
+                print "Delta: {}".format(delta_value)
+                print "Theta: {}".format(theta_value)
+                print "Alpha: {}".format(alpha_value)
+                print "Beta: {}".format(beta_value)
+                print "Gamma: {}".format(gamma_value)
+            else:
+                pass
